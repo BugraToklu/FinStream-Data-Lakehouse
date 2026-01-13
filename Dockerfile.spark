@@ -4,10 +4,9 @@ USER root
 
 RUN pip install --no-cache-dir \
     delta-spark==3.0.0 \
-    kafka-python \
+    kafka-python-ng \
     faker \
     minio
-
 
 ENV SPARK_VERSION=3.5.0
 ENV DELTA_VERSION=3.0.0

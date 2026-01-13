@@ -15,15 +15,25 @@ services:
       - ./data/minio:/data
     networks:
       - finstream-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
 
   minio-create-bucket:
     image: minio/mc
     depends_on:
-      - minio
+      minio:
+        condition: service_healthy
     entrypoint: >
       /bin/sh -c "
-      /usr/bin/mc alias set myminio http://minio:9000 admin password;
+      until /usr/bin/mc alias set myminio http://minio:9000 admin password; do
+        echo 'MinIO waiting...';
+        sleep 1;
+      done;
       /usr/bin/mc mb --ignore-existing myminio/lakehouse;
+      echo 'created bucket.';
       exit 0;
       "
     networks:
@@ -65,6 +75,8 @@ services:
       - "7077:7077"
     environment:
       - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_SECRET=undefined
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
     volumes:
       - ./notebooks:/opt/spark/notebooks
       - ./src:/opt/spark/src
@@ -80,9 +92,10 @@ services:
       - spark-master
     environment:
       - SPARK_MODE=worker
-      - SPARK_MASTER_URL=spark://spark-master:7077
       - SPARK_WORKER_CORES=2
       - SPARK_WORKER_MEMORY=1G
+      - SPARK_RPC_AUTHENTICATION_SECRET=undefined
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
     volumes:
       - ./notebooks:/opt/spark/notebooks
       - ./src:/opt/spark/src
