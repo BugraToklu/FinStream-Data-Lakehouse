@@ -127,6 +127,94 @@ services:
     networks:
       - finstream-net
 
+  dbt:
+    build:
+      context: .
+      dockerfile: Dockerfile.dbt
+    container_name: finstream-dbt
+    volumes:
+      - ./dbt_project:/usr/app
+      - ./dbt_project/profiles.yml:/root/.dbt/profiles.yml
+    networks:
+      - finstream-net
+
+
+
+  airflow-postgres:
+    image: postgres:13
+    container_name: finstream-airflow-postgres
+    environment:
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+    networks:
+      - finstream-net
+
+  airflow-init:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    depends_on:
+      - airflow-postgres
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+    command: version
+    entrypoint: >
+      /bin/bash -c "
+      airflow db init &&
+      airflow users create --username admin --password admin --firstname Bugra --lastname Toklu --role Admin --email admin@example.com
+      "
+    networks:
+      - finstream-net
+
+  airflow-webserver:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    container_name: finstream-airflow-webserver
+    depends_on:
+      - airflow-postgres
+      - airflow-init
+    ports:
+      - "8082:8080"
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__WEBSERVER__SECRET_KEY=bu_cok_gizli_bir_sifredir_finstream_123
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./dbt_project:/opt/airflow/dbt_project
+    command: webserver
+    networks:
+      - finstream-net
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+
+  airflow-scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    container_name: finstream-airflow-scheduler
+    depends_on:
+      - airflow-postgres
+      - airflow-init
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__WEBSERVER__SECRET_KEY=bu_cok_gizli_bir_sifredir_finstream_123
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./dbt_project:/opt/airflow/dbt_project
+    command: scheduler
+    networks:
+      - finstream-net
+
 networks:
   finstream-net:
     driver: bridge

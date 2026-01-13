@@ -1,0 +1,13 @@
+transform:
+  target: dev
+  outputs:
+    dev:
+      type: trino
+      method: none
+      user: admin
+      database: delta
+      schema: default
+      host: trino
+      port: 8080
+      threads: 1
+      http_scheme: http
