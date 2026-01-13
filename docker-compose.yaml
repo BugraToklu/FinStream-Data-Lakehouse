@@ -117,6 +117,16 @@ services:
     networks:
       - finstream-net
 
+  trino:
+    image: trinodb/trino:436
+    container_name: finstream-trino
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./conf/trino/delta.properties:/etc/trino/catalog/delta.properties
+    networks:
+      - finstream-net
+
 networks:
   finstream-net:
     driver: bridge

@@ -18,3 +18,5 @@ logs/
 spark-warehouse/
 metastore_db/
 derby.log
+
+conf/trino/delta.properties
