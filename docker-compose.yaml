@@ -1,0 +1,109 @@
+version: '3.8'
+
+services:
+  minio:
+    image: minio/minio
+    container_name: finstream-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=password
+    command: server /data --console-address ":9001"
+    volumes:
+      - ./data/minio:/data
+    networks:
+      - finstream-net
+
+  minio-create-bucket:
+    image: minio/mc
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://minio:9000 admin password;
+      /usr/bin/mc mb --ignore-existing myminio/lakehouse;
+      exit 0;
+      "
+    networks:
+      - finstream-net
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: finstream-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - finstream-net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: finstream-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - finstream-net
+
+  spark-master:
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
+    container_name: finstream-spark-master
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    environment:
+      - SPARK_MODE=master
+    volumes:
+      - ./notebooks:/opt/spark/notebooks
+      - ./src:/opt/spark/src
+    networks:
+      - finstream-net
+
+  spark-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
+    container_name: finstream-spark-worker
+    depends_on:
+      - spark-master
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=1G
+    volumes:
+      - ./notebooks:/opt/spark/notebooks
+      - ./src:/opt/spark/src
+    networks:
+      - finstream-net
+
+  jupyter:
+    image: jupyter/pyspark-notebook:latest
+    container_name: finstream-jupyter
+    user: root
+    ports:
+      - "8888:8888"
+    environment:
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - JUPYTER_TOKEN=admin
+    volumes:
+      - ./notebooks:/home/jovyan/work
+      - ./src:/home/jovyan/src
+    networks:
+      - finstream-net
+
+networks:
+  finstream-net:
+    driver: bridge

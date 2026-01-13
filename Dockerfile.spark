@@ -1,0 +1,15 @@
+FROM apache/spark:3.5.0
+
+USER root
+
+RUN pip install --no-cache-dir \
+    delta-spark==3.0.0 \
+    kafka-python \
+    faker \
+    minio
+
+
+ENV SPARK_VERSION=3.5.0
+ENV DELTA_VERSION=3.0.0
+
+WORKDIR /opt/spark/work-dir
