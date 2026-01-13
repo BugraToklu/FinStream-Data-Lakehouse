@@ -20,3 +20,22 @@ metastore_db/
 derby.log
 
 conf/trino/delta.properties
+
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+
+.idea/
+.vscode/
+*.swp
+
+dbt_project/transform/target/
+dbt_project/transform/logs/
+dbt_project/transform/dbt_packages/
+
+.DS_Store
+Thumbs.db
+
+logs/
