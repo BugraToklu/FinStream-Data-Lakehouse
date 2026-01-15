@@ -215,6 +215,16 @@ services:
     networks:
       - finstream-net
 
+  metabase:
+    image: metabase/metabase:latest
+    container_name: finstream-metabase
+    ports:
+      - "3000:3000"
+    networks:
+      - finstream-net
+    depends_on:
+      - trino
+
 networks:
   finstream-net:
     driver: bridge
